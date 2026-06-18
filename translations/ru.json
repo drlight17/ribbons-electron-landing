@@ -6,7 +6,7 @@
 	"fullscreen_btn":"На весь экран",
 	"hideDemo_btn":"Закрыть",
 	"sys_req":"Минимальные системные требования",
-	"sys_req_p":"MacOS 10.15 Catalina, Windows 8/2012, Linux с современной версией ядра (>=5.x)",
+	"sys_req_p":"MacOS 12.3 (с версии <a href=\"https://github.com/drlight17/ribbons-electron/releases/0.5.0\">0.5.0</a>), Windows 10+, Linux с современным ядром (>=6.x) и PulseAudio",
 	"download":"Загрузка",
 	"platform_th":"Платформа",
 	"type_th":"Тип",
