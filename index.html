@@ -328,7 +328,16 @@
         }
 
     </style>
+    <script type="module">
+        import Ribbons from './ribbons.js'
+        import RibbonsModern from './ribbons_modern.js'
+
+      // Make them available to the non-module inline script
+      window.Ribbons = Ribbons;
+      window.RibbonsModern = RibbonsModern;
+    </script>
     <script>
+       
         const userLang = navigator.language || navigator.userLanguage;
         const initialLang = userLang.startsWith('ru') ? 'ru' : 'en';
         let currentLanguage = initialLang;
@@ -810,7 +819,5 @@
     </div>
     <p class="copyright"><a href="https://github.com/drlight17">drlight17</a> &nbsp;&nbsp;©2025-2026 </p>
     <a href="mailto:drlight_here@inbox.ru"><img class="mailto" src="developed_by_drlight.png" /></a>
-    <script src="ribbons.js"></script>
-    <script src="ribbons_modern.js"></script>
 </body>
 </html>
