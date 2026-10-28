@@ -980,3 +980,4 @@ var RibbonsModern = (function () {
 if (typeof window === "object") {
     window.RibbonsModern = RibbonsModern;
 }
+export default RibbonsModern;

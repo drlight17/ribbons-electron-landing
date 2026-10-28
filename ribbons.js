@@ -4,7 +4,7 @@
  * Creates low-poly ribbons background effect inside a target container.
  *
  * Background is painted on a dedicated canvas (same approach as RibbonsModern).
- * backgroundMode: "dark" | "light" | "darkGradient" | "lightGradient" | "transparent" | "glass"
+ * backgroundMode: "dark" | "light" | "darkGradient" | "lightGradient" | "transparent"
  */
 const Ribbons = (function (name, factory) {
     "use strict";
@@ -158,18 +158,20 @@ const Ribbons = (function (name, factory) {
             // single color default is off (random ribbons colors)
             singleColor: false,
             /**
-             * Background painted on dedicated bg canvas (same as RibbonsModern).
+             * Background backgroundMode — painted on dedicated bg canvas (same as RibbonsModern).
              *   "dark"          — solid black
              *   "light"         — solid white
              *   "darkGradient"  — radial dark blue gradient
              *   "lightGradient" — radial light gray gradient
-             *   "transparent" | "glass" — no fill (for glasstron / acrylic blur)
+             *   "transparent"   — no fill (for glasstron / acrylic blur)
+             *
              */
             backgroundMode: "dark"
         };
         this._onDraw = this._onDraw.bind(this);
         this._onResize = this._onResize.bind(this);
         this._onScroll = this._onScroll.bind(this);
+        this._destroyed = false;
         this.setOptions(options);
         this.init();
     };
@@ -178,7 +180,9 @@ const Ribbons = (function (name, factory) {
         constructor: Factory,
         // Set and merge local options
         setOptions: function (options) {
+            
             var key;
+            
             if (typeof options === "object") {
                 for (key in options) {
                     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -186,6 +190,27 @@ const Ribbons = (function (name, factory) {
                     }
                 }
             }
+            // horizontalSpeed: tray strings or modern-style multiplier (0.3–3)
+            // Classic engine uses pixel step (~150). Map small multipliers up.
+            var SPEED_MAP = { slow: 80, normal: 150, fast: 220, v_fast: 300 };
+            var hs = this._options.horizontalSpeed;
+            if (typeof hs === "string" && SPEED_MAP[hs] != null) {
+                this._options.horizontalSpeed = SPEED_MAP[hs];
+            } else {
+                hs = Number(hs);
+                if (Number.isFinite(hs) && hs > 0 && hs <= 10) {
+                    // multiplier from settings slider → pixel speed
+                    this._options.horizontalSpeed = Math.round(hs * 100);
+                } else if (!Number.isFinite(hs) || hs <= 0) {
+                    this._options.horizontalSpeed = 150;
+                }
+            }
+            // delay / phase: if missing, derive from approximate speed
+            var px = Number(this._options.horizontalSpeed) || 150;
+            var mult = Math.max(0.3, Math.min(3, px / 100));
+            var t = (mult - 0.3) / (3 - 0.3);
+            if (this._options.delay == null) this._options.delay = 6.5 - t * 5;
+            if (this._options.phase == null) this._options.phase = 0.005 + t * 0.065;
         },
         _styleLayer: function (el, zIndex) {
             el.style.display = "block";
@@ -214,11 +239,14 @@ const Ribbons = (function (name, factory) {
             var W = this._width;
             var H = this._height;
             var mode = this._options.backgroundMode || "dark";
+
             ctx.clearRect(0, 0, W, H);
-            // Transparent / glass — leave canvas fully clear for glasstron / acrylic blur
-            if (mode === "transparent" || mode === "glass") {
+
+            // Transparent — leave canvas fully clear for glasstron / acrylic blur
+            if (mode === "transparent" || mode === "glass" ) {
                 return;
             }
+
             if (mode === "light") {
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(0, 0, W, H);
@@ -416,12 +444,14 @@ const Ribbons = (function (name, factory) {
         },
         // Draw ribbons
         _onDraw: function () {
+            if (this._destroyed) return;
             for (var i = 0; i < this._ribbons.length; ++i) {                
                 if (!this._ribbons[i]) {
                     this._ribbons.splice(i, 1);
                     i--;
                 }
             }
+            if (!this._context || !this._canvas) return;
             
             this._drawBackground();
             this._context.clearRect(0, 0, this._width, this._height);
@@ -446,15 +476,19 @@ const Ribbons = (function (name, factory) {
             while (this._ribbons.length < this._options.ribbonCount) {
                 this.addRibbon();
             }
-            // AnimationId is set by controller.js (global)
+            // Reuse pre-bound _onDraw (constructor) — do NOT .bind() every frame
+            var raf = requestAnimationFrame(this._onDraw);
+            this._raf = raf;
+            if (typeof window !== 'undefined') {
+                window.AnimationId = raf;
+            }
             if (typeof AnimationId !== 'undefined') {
-                AnimationId = requestAnimationFrame(this._onDraw.bind(this));
-            } else {
-                requestAnimationFrame(this._onDraw.bind(this));
+                AnimationId = raf;
             }
         },
         // Update container size info
         _onResize: function(e) {
+            if (this._destroyed) return;
             var screen = screenInfo(e);
             this._width = screen.width;
             this._height = screen.height;
@@ -473,10 +507,41 @@ const Ribbons = (function (name, factory) {
         },
         // Update container size info
         _onScroll: function(e) {
+            if (this._destroyed) return;
             var screen = screenInfo(e);
             this._scroll = screen.scrolly;
+        },
+        /** Full teardown — required when settings preview restarts classic often */
+        destroy: function () {
+            this._destroyed = true;
+            if (this._raf != null) {
+                cancelAnimationFrame(this._raf);
+                this._raf = null;
+            }
+            try {
+                cancelAnimationFrame(window.AnimationId);
+            } catch (_) {}
+            try {
+                if (typeof AnimationId !== 'undefined') {
+                    cancelAnimationFrame(AnimationId);
+                }
+            } catch (_) {}
+            window.removeEventListener('resize', this._onResize);
+            window.removeEventListener('scroll', this._onScroll);
+            if (this._canvas && this._canvas.parentNode) {
+                this._canvas.parentNode.removeChild(this._canvas);
+            }
+            if (this._bgCanvas && this._bgCanvas.parentNode) {
+                this._bgCanvas.parentNode.removeChild(this._bgCanvas);
+            }
+            this._canvas = null;
+            this._context = null;
+            this._bgCanvas = null;
+            this._bgContext = null;
+            this._ribbons = [];
         },
     };
     // export
     return Factory;
 });
+export default Ribbons;
