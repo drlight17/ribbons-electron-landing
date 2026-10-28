@@ -1,17 +1,18 @@
 /*global document, window, console, Ribbons*/
-
 /**
  * Ribbons Class File.
  * Creates low-poly ribbons background effect inside a target container.
+ *
+ * Background is painted on a dedicated canvas (same approach as RibbonsModern).
+ * backgroundMode: "dark" | "light" | "darkGradient" | "lightGradient" | "transparent" | "glass"
  */
-(function (name, factory) {
-    
+const Ribbons = (function (name, factory) {
     "use strict";
-    
+    const result = factory();
     if (typeof window === "object") {
-        window[name] = factory();
+        window[name] = result;
     }
-
+    return result;
 })("Ribbons", function () {
     
     "use strict";
@@ -19,7 +20,6 @@
     var _w = window,
         _b = document.body,
         _d = document.documentElement;
-
     // random helper
     var random = function () {
         if (arguments.length === 1) { // only 1 argument
@@ -35,7 +35,6 @@
         }
         return 0; // default
     };
-
     // screen helper
     var screenInfo = function (e) {
         var width = Math.max(0, _w.innerWidth || _d.clientWidth || _b.clientWidth || 0),
@@ -53,13 +52,11 @@
             scrolly: scrolly
         };
     };
-
     // mouse/input helper
     var mouseInfo = function (e) {
         var screen = screenInfo(e),
             mousex = e ? Math.max(0, e.pageX || e.clientX || 0) : 0,
             mousey = e ? Math.max(0, e.pageY || e.clientY || 0) : 0;
-
         return {
             mousex: mousex,
             mousey: mousey,
@@ -67,7 +64,6 @@
             centery: mousey - (screen.height / 2)
         };
     };
-
     // point object
     var Point = function (x, y) {
         this.x = 0;
@@ -76,7 +72,6 @@
     };
     Point.prototype = {
         constructor: Point,
-
         set: function (x, y) {
             this.x = (x || 0);
             this.y = (y || 0);
@@ -123,11 +118,12 @@
             return this;
         }
     };
-
     // class constructor
     var Factory = function (options) {
         this._canvas = null;
         this._context = null;
+        this._bgCanvas = null;
+        this._bgContext = null;
         this._sto = null;
         this._width = 0;
         this._height = 0;
@@ -158,9 +154,18 @@
             // add animation effect to each ribbon section over time
             animateSections: true,
             // add blur shadow effect to each ribbon with radius
-            ribbonBlur: 10,
+            glow: 10,
             // single color default is off (random ribbons colors)
-            singleColor: false
+            singleColor: false,
+            /**
+             * Background painted on dedicated bg canvas (same as RibbonsModern).
+             *   "dark"          — solid black
+             *   "light"         — solid white
+             *   "darkGradient"  — radial dark blue gradient
+             *   "lightGradient" — radial light gray gradient
+             *   "transparent" | "glass" — no fill (for glasstron / acrylic blur)
+             */
+            backgroundMode: "dark"
         };
         this._onDraw = this._onDraw.bind(this);
         this._onResize = this._onResize.bind(this);
@@ -168,114 +173,106 @@
         this.setOptions(options);
         this.init();
     };
-
     // class prototype
     Factory.prototype = {
         constructor: Factory,
-
         // Set and merge local options
         setOptions: function (options) {
-            
             var key;
-            
             if (typeof options === "object") {
                 for (key in options) {
-                    if (options.hasOwnProperty(key)) {
+                    if (Object.prototype.hasOwnProperty.call(options, key)) {
                         this._options[key] = options[key];
                     }
                 }
             }
         },
-
+        _styleLayer: function (el, zIndex) {
+            el.style.display = "block";
+            el.style.position = "fixed";
+            el.style.margin = "0";
+            el.style.padding = "0";
+            el.style.border = "0";
+            el.style.outline = "0";
+            el.style.left = "0";
+            el.style.top = "0";
+            el.style.width = "100%";
+            el.style.height = "100%";
+            el.style.zIndex = String(zIndex);
+            el.style.pointerEvents = "none";
+            el.style.background = "transparent";
+        },
+        /**
+         * Background on its own canvas (z-index -2).
+         * Ribbons canvas stays transparent at z-index 0 so
+         * .datetime-container (z-index: -1) sits between them;
+         * .datetime-container.front (z-index: 4) goes above ribbons.
+         */
+        _drawBackground: function () {
+            var ctx = this._bgContext;
+            if (!ctx) return;
+            var W = this._width;
+            var H = this._height;
+            var mode = this._options.backgroundMode || "dark";
+            ctx.clearRect(0, 0, W, H);
+            // Transparent / glass — leave canvas fully clear for glasstron / acrylic blur
+            if (mode === "transparent" || mode === "glass") {
+                return;
+            }
+            if (mode === "light") {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, W, H);
+            } else if (mode === "lightGradient") {
+                var bgL = ctx.createRadialGradient(
+                    W * 0.5, H * 0.42, 0,
+                    W * 0.5, H * 0.48, Math.max(W, H) * 0.78
+                );
+                bgL.addColorStop(0, "#e9edf4");
+                bgL.addColorStop(0.48, "#c6cfde");
+                bgL.addColorStop(1, "#8998b0");
+                ctx.fillStyle = bgL;
+                ctx.fillRect(0, 0, W, H);
+            } else if (mode === "darkGradient") {
+                var bg = ctx.createRadialGradient(
+                    W * 0.5, H * 0.48, 0,
+                    W * 0.5, H * 0.48, Math.max(W, H) * 0.75
+                );
+                bg.addColorStop(0, "#111b39");
+                bg.addColorStop(0.55, "#080d1c");
+                bg.addColorStop(1, "#03050c");
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, W, H);
+            } else {
+                // "dark" and any unknown value
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(0, 0, W, H);
+            }
+        },
         // Initialize the ribbons effect
         init: function () {
             try {
+                // bg below datetime (-1); ribbons above datetime
+                this._bgCanvas = document.createElement("canvas");
+                this._bgCanvas.className = "ribbons-bg-canvas";
+                this._styleLayer(this._bgCanvas, -2);
                 this._canvas = document.createElement("canvas");
-                this._canvas.style["display"] = "block";
-                this._canvas.style["position"] = "fixed";
-                this._canvas.style["margin"] = "0";
-                this._canvas.style["padding"] = "0";
-                this._canvas.style["border"] = "0";
-                this._canvas.style["outline"] = "0";
-                this._canvas.style["left"] = "0";
-                this._canvas.style["top"] = "-20px";
-                this._canvas.style["width"] = "100%";
-                this._canvas.style["height"] = "100%";
-                this._canvas.style["z-index"] = "-1";
+                this._canvas.className = "ribbons-canvas";
+                this._styleLayer(this._canvas, 0);
                 this._onResize();
-
+                this._bgContext = this._bgCanvas.getContext("2d");
                 this._context = this._canvas.getContext("2d");
-                this._context.clearRect(0, 0, this._width, this._height);
                 this._context.globalAlpha = this._options.colorAlpha;
-
+                this._drawBackground();
                 window.addEventListener("resize", this._onResize);
                 window.addEventListener("scroll", this._onScroll);
-                
-                var demo=document.querySelector("#demo");
-                var hide_btn = document.createElement("button");
-                var fs_btn = document.createElement("button");
-                hide_btn.id = 'hideDemo_btn';
-                fs_btn.id = 'fullscreen_btn';
-                hide_btn.textContent = '×';
-                hide_btn.title = 'Close';
-                fs_btn.textContent = '⛶';
-                
-                hide_btn.style["font-size"] = "33px";
-                fs_btn.title = 'Fullscreen';
-                hide_btn.style["z-index"] = "9999";
-                hide_btn.style["display"] = "none";
-                hide_btn.style["position"] = "relative";
-                hide_btn.style["top"] = "-7px";
-                hide_btn.style["left"] = "-10px";
-                hide_btn.style["float"] = "right";
-                hide_btn.style["background"] = "none";
-                hide_btn.style["border"] = "none";
-                hide_btn.style["padding"] = 0;
-                hide_btn.style["margin"] = 0;
-
-                fs_btn.style["z-index"] = "9999";
-                fs_btn.style["display"] = "none";
-                fs_btn.style["position"] = "relative";
-                if (navigator.userAgent.toLowerCase().includes("firefox")) {
-                    fs_btn.style["font-size"] = "19px";
-                    fs_btn.style["top"] = "2px";
-                } else {
-                    fs_btn.style["font-size"] = "21px";
-                    fs_btn.style["top"] = "0px";
-                }
-                
-                fs_btn.style["left"] = "-30px";
-                fs_btn.style["float"] = "right";
-                fs_btn.style["background"] = "none";
-                fs_btn.style["border"] = "none";
-                fs_btn.style["padding"] = 0;
-                fs_btn.style["margin"] = 0;
-
-                hide_btn.onclick = function () {
-                  //console.log(this);
-                  //this.style["display"] = "block";
-                  hideDemo();
-                };
-
-                fs_btn.onclick = function () {
-                  //console.log(this);
-                  //this.style["display"] = "block";
-                  //hideDemo(this);
-                  fsDemo();
-                };
-
-                demo.appendChild(hide_btn);
-                demo.appendChild(fs_btn);
-
-                demo.appendChild(this._canvas);
-                //document.body.appendChild(this._canvas);
+                document.body.appendChild(this._bgCanvas);
+                document.body.appendChild(this._canvas);
             } catch (e) {
                 console.warn("Canvas Context Error: " + e.toString());
                 return;
             }
             this._onDraw();
         },
-
         // Create a new random ribbon and to the list
         addRibbon: function() {
             // tricolor
@@ -292,7 +289,6 @@
                 movey = 0,
                 startx = (dir === "right") ? min : max,
                 starty = Math.round(random(0, this._height));
-
             // asjust starty based on options
             if (/^(top|min)$/i.test(this._options.verticalPosition)) {
                 starty = 0 + hide;
@@ -301,7 +297,6 @@
             } else if (/^(bottom|max)$/i.test(this._options.verticalPosition)) {
                 starty = this._height - hide;
             }
-            //console.log(this._options.singleColor)
             // ribbon sections data
             // tricolor
             if (this._options.singleColor === 667 ) {
@@ -315,31 +310,20 @@
             } else {
                 var color = Math.round(random(0, 360));
             }
-
-
             var ribbon = [],
                 point1 = new Point(startx, starty),
                 point2 = new Point(startx, starty),
                 point3 = null,
-                //color = this._options.singleColor ? this._options.singleColor : Math.round(random(0, 360)),
-                //color = Math.round(random(0, 360)),
                 // randomize delay between each ribbon appearance
                 delay = Math.random() * 4;
-
-
-
             // buils ribbon sections
-
             while (true) {
                 if (stop <= 0) break;
                 stop--;
-
                 movex = Math.round((Math.random() * 1 - 0.2) * this._options.horizontalSpeed);
                 movey = Math.round((Math.random() * 1 - 0.5) * (this._height * 0.35));
-
                 point3 = new Point();
                 point3.copy(point2);
-
                 if (dir === "right") {
                     point3.add(movex, movey);
                     if (point2.x >= max) break;
@@ -347,8 +331,6 @@
                     point3.subtract(movex, movey);
                     if (point2.x <= min) break;
                 }
-                // point3.clampY( 0, this._height );
-
                 ribbon.push({ // single ribbon section
                     point1: new Point(point1.x, point1.y),
                     point2: new Point(point2.x, point2.y),
@@ -359,13 +341,8 @@
                     alpha: 0,
                     phase: 0,
                 });
-
                 point1.copy(point2);
                 point2.copy(point3);
-
-                // affects ribbon appear speed
-                //delay += 4;
-                //delay += 0.2;
                 delay += this._options.delay;
                 color += this._options.colorCycleSpeed;
                 
@@ -376,23 +353,18 @@
             }
             this._ribbons.push(ribbon);
         },
-
         _drawRibbonSection: function (section) {
             if (section) {
                 if (section.phase >= 1 && section.alpha <= 0) {
                     return true; // done
                 }
                 if (section.delay <= 0) {
-                    // section.phase affects animation speed 
-                    //section.phase += 0.014;
                     section.phase += this._options.phase;
                     section.alpha = Math.sin(section.phase) * 1;
                     section.alpha = (section.alpha <= 0) ? 0 : section.alpha;
                     section.alpha = (section.alpha >= 1) ? 1 : section.alpha;
-
                     if (this._options.animateSections) {
                         var mod = (Math.sin(1 + section.phase * Math.PI / 2) * 0.1);
-
                         if (section.dir === "right") {
                             section.point1.add(mod, 0);
                             section.point2.add(mod, 0);
@@ -418,28 +390,20 @@
                     var s = this._options.colorSaturation;
                     var l = this._options.colorBrightness;
                 }
-                var //s = this._options.colorSaturation,
-                    //l = this._options.colorBrightness,
-                    c = "hsla(" + section.color + ", " + s + ", " + l + ", " + section.alpha + " )";
-
+                var c = "hsla(" + section.color + ", " + s + ", " + l + ", " + section.alpha + " )";
                 this._context.save();
-
                 if (this._options.parallaxAmount !== 0) {
                     this._context.translate(0, this._scroll * this._options.parallaxAmount);
                 }
-
                 this._context.beginPath();
                 this._context.moveTo(section.point1.x, section.point1.y);
                 this._context.lineTo(section.point2.x, section.point2.y);
                 this._context.lineTo(section.point3.x, section.point3.y);
-
                 // set blur
-                this._context.shadowBlur = this._options.ribbonBlur;
+                this._context.shadowBlur = this._options.glow;
                 this._context.shadowColor = c;
-
                 this._context.fillStyle = c;
                 this._context.fill();
-
                 if (this._options.strokeSize > 0) {
                     this._context.lineWidth = this._options.strokeSize;
                     this._context.strokeStyle = c;
@@ -450,10 +414,8 @@
             }
             return false; // not done yet
         },
-
         // Draw ribbons
         _onDraw: function () {
-
             for (var i = 0; i < this._ribbons.length; ++i) {                
                 if (!this._ribbons[i]) {
                     this._ribbons.splice(i, 1);
@@ -461,82 +423,60 @@
                 }
             }
             
+            this._drawBackground();
             this._context.clearRect(0, 0, this._width, this._height);
-
             
             for (var a = 0; a < this._ribbons.length; ++a) {
-
                 var ribbon = this._ribbons[a];
-
                 if (!ribbon || !Array.isArray(ribbon) || ribbon.length === 0) {
                     this._ribbons[a] = null;
                     continue;
                 }
-
                 var numSections = ribbon.length;
                 var numDone = 0;
-
                 for (var b = 0; b < numSections; ++b) {
                     if (this._drawRibbonSection(ribbon[b])) {
                         numDone++;
                     }
                 }
-
                 if (numDone >= numSections) {
                     this._ribbons[a] = null;
                 }
             }
-
             while (this._ribbons.length < this._options.ribbonCount) {
                 this.addRibbon();
             }
-
-            AnimationId = requestAnimationFrame(this._onDraw.bind(this));
+            // AnimationId is set by controller.js (global)
+            if (typeof AnimationId !== 'undefined') {
+                AnimationId = requestAnimationFrame(this._onDraw.bind(this));
+            } else {
+                requestAnimationFrame(this._onDraw.bind(this));
+            }
         },
-
-
         // Update container size info
         _onResize: function(e) {
             var screen = screenInfo(e);
             this._width = screen.width;
             this._height = screen.height;
-
             if (this._canvas) {
                 this._canvas.width = this._width;
                 this._canvas.height = this._height;
-
                 if (this._context) {
                     this._context.globalAlpha = this._options.colorAlpha;
                 }
             }
+            if (this._bgCanvas) {
+                this._bgCanvas.width = this._width;
+                this._bgCanvas.height = this._height;
+            }
+            this._drawBackground();
         },
-
         // Update container size info
         _onScroll: function(e) {
             var screen = screenInfo(e);
             this._scroll = screen.scrolly;
         },
-
     };
-
     // export
     return Factory;
 });
-
-var AnimationId = null;
-
-// ribbon appearance section
-Ribbons_instance = new Ribbons({
-    colorSaturation: "60%", // set saturation
-    colorBrightness: "50%", // set brightness
-    colorAlpha: 1, // set semitransparency
-    verticalPosition: "random", // make vertical position random
-    horizontalSpeed: 400, // set speed
-    ribbonCount: 3, // max onscreen visible ribbons
-    strokeSize: 1, // add stroke
-    parallaxAmount: -0.3, // lightn parallax
-    animateSections: true, // section animation
-    ribbonBlur: 30 // set ribbon blur intensity
-});
-
-

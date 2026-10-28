@@ -76,6 +76,12 @@
         }
 
 
+        #demo_controls button {
+            opacity: 0.75;
+        }
+        #demo_controls button:hover {
+            opacity: 1;
+        }
         body.light-theme #fullscreen_btn, body.light-theme #hideDemo_btn  {
             filter: invert(0);
         }
@@ -91,16 +97,26 @@
 
         .lang-toggle, .theme-toggle {
             text-align: right;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             display: flex;
             justify-content: space-between;
-            z-index: 2;
             position: relative;
         }
+        .lang-toggle {
+            z-index: 2;
+        }
+        
         .theme-toggle {
-            position: absolute;
+            /*position: absolute;*/
             right:0;
-            top:0;  
+            top:0;
+            z-index: 5;
+        }
+
+        #icon_span {
+            backdrop-filter: blur(2px);
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .lang-toggle button, .theme-toggle button, .download-button {
@@ -126,13 +142,16 @@
         }
 
         .theme-toggle button {
+            border-radius: 20px;
+            padding: 7px;
+            backdrop-filter: blur(3px);
             font-size: 30px;
             background: none;
             border: none;
             transition: transform 0.3s;
             position: fixed;
             top: 0;
-            right: 0;
+            right: 10px;
         }
 
         .theme-toggle.dark-theme button {
@@ -140,15 +159,16 @@
         }
         
         .mailto {
+            background-color: unset;
             display: inline;
-            background: none;
+            padding: 15px;
             height: 70px;
-            filter: brightness(.2);
-            position: fixed;
-            right: 0px;
-            bottom: 15px;
-            margin-right: 10px;
+            margin-top: -100px;
+            filter: drop-shadow(0px 0px 2px black);
+            position: relative;
             transition: filter .1s ease, opacity .1s ease, background-color .1s ease, color .1s ease, box-shadow .1s ease, background .1s ease;
+            position: absolute;
+            right: 0;
         }
         .mailto.dark-theme {
             filter: invert(0);
@@ -186,14 +206,23 @@
         @media (max-width: 500px) {
 
             #toggleButton {
-                position: absolute;
-                top: -97px;
-                left: 40px;
+                position: relative;
+                top: 0;
+                left: 16px;
+            }
+
+            .lang-toggle, .theme-toggle {
+                margin-bottom: auto!important;
+            }
+
+            .engine-toggle {
+                top: auto!important;
+                left: 34%!important;
             }
 
             .github {
-                position: absolute;
-                top: -105px;
+                position: ingerit;
+                top: -174px;
                 left: 0px;
             }
             h1.title {
@@ -230,6 +259,73 @@
         }*/
 
 
+
+
+        #demo {
+            position: relative;
+            display: block;
+            width: 100%;
+            height: 350px;
+            overflow: hidden;
+            isolation: isolate;
+            background: transparent;
+        }
+        /* Full-page background until user opens the bordered demo panel */
+        #demo.as-bg {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: -1 !important;
+            border: none !important;
+            pointer-events: none;
+        }
+        #demo.as-panel {
+            position: relative !important;
+            inset: auto !important;
+            height: 350px !important;
+            z-index: 2 !important;
+            pointer-events: none;
+        }
+        #demo canvas {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            pointer-events: none;
+            background: transparent !important;
+        }
+        .engine-toggle {
+            position: absolute;
+            /* display: flex; */
+            z-index: 3;
+            top: 80px;
+            left: 35%;
+            gap: 8px;
+            justify-content: center;
+            margin: 8px 0 12px;
+        }
+        .engine-toggle button {
+            border: 1px solid #8884;
+            background: #00000014;
+            color: inherit;
+            border-radius: 999px;
+            padding: 8px 16px;
+            font: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .engine-toggle button.active {
+            background: #4d6ef0;
+            border-color: #4d6ef0;
+            color: #fff;
+        }
+        body.dark-theme .engine-toggle button:not(.active) {
+            background: #ffffff14;
+            border-color: #ffffff33;
+        }
 
     </style>
     <script>
@@ -275,6 +371,8 @@
           document.getElementById('sys_req_p').innerHTML = translations.sys_req_p;
           document.getElementById('hideDemo_btn').title = translations.hideDemo_btn;
           document.getElementById('fullscreen_btn').title = translations.fullscreen_btn;
+          document.getElementById('engine_modern_btn').textContent = translations.engine_modern_btn;
+          document.getElementById('engine_classic_btn').textContent = translations.engine_classic_btn;
           let downloads = document.querySelectorAll("#download");
           downloads.forEach((download) => {
             download.textContent = translations.download;
@@ -290,6 +388,7 @@
           document.getElementById('spec_h2').textContent = translations.spec_h2;
           document.getElementById('spec_li1').innerHTML = translations.spec_li1;
           document.getElementById('spec_li2').innerHTML = translations.spec_li2;
+          document.getElementById('spec_li3').innerHTML = translations.spec_li3;
           document.getElementById('all_rights_p').textContent = translations.all_rights_p;
           document.getElementById('toggleButton').title = translations.toggleButton;
           document.querySelector('meta[property="og:title"]').setAttribute("content", translations.icon_span);
@@ -304,6 +403,7 @@
                 document.body.classList.remove('light-theme');
                 document.body.classList.add('dark-theme');
                 localStorage.setItem('theme', 'dark');
+                if (typeof startDemoEngine === 'function' && demoStarted) startDemoEngine(demoEngine);
                 document.querySelector('.container').classList.remove('light-theme');
                 document.querySelector('.container').classList.add('dark-theme');
                 document.querySelector('.mailto').classList.add('dark-theme');
@@ -312,6 +412,7 @@
                 document.body.classList.remove('dark-theme');
                 document.body.classList.add('light-theme');
                 localStorage.setItem('theme', 'light');
+                if (typeof startDemoEngine === 'function' && demoStarted) startDemoEngine(demoEngine);
                 document.querySelector('.container').classList.add('light-theme');
                 document.querySelector('.container').classList.remove('dark-theme');
                 document.querySelector('.mailto').classList.remove('dark-theme');
@@ -348,47 +449,242 @@
                 document.body.style["background-color"] = "black";
             }
             document.body.style["opacity"] = 0;
-            
+            const target = demoRoot() || document.querySelector('canvas');
+            if (!target) return;
             if (navigator.userAgent.toLowerCase().includes("firefox")) {
-                document.querySelector('canvas').mozRequestFullScreen(); //Firefox
-            } else {
-                document.querySelector('canvas').webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT); //Chrome
+                target.mozRequestFullScreen();
+            } else if (target.requestFullscreen) {
+                target.requestFullscreen();
+            } else if (target.webkitRequestFullScreen) {
+                target.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
             }
-
-
         }
 
         function hideDemo() {
-            document.querySelector('canvas').style["position"] = "fixed";
-            document.querySelector('canvas').style["height"] = "100%";
-            document.querySelector('canvas').style["z-index"] = "-1";
-            document.querySelector("#hideDemo_btn").style["display"] = "none";
-            document.querySelector("#fullscreen_btn").style["display"] = "none";
-            document.querySelector("#showDemo_btn").style["display"] = "block";
-            document.querySelector("#demo").style["border"] = "none";
-            document.querySelector("#demo").style["border-style"] = "none";
+            const d = demoRoot();
+            if (d) {
+                d.classList.add('as-bg');
+                d.classList.remove('as-panel');
+                d.style.border = 'none';
+                d.style.display = 'block';
+                document.body.insertBefore(d, document.body.firstChild);
+            }
+            const hideBtn = document.querySelector("#hideDemo_btn");
+            const fsBtn = document.querySelector("#fullscreen_btn");
+            const showBtn = document.querySelector("#showDemo_btn");
+            if (hideBtn) hideBtn.style.display = "none";
+            if (fsBtn) fsBtn.style.display = "none";
+            if (showBtn) showBtn.style.display = "block";
+            startDemoEngine(demoEngine);
+            const d2 = demoRoot();
+            if (d2) {
+                d2.classList.add('as-bg');
+                d2.classList.remove('as-panel');
+            }
         }
 
         function showDemo(button) {
             const show_demo_btn = document.querySelector("#showDemo_btn");
-            document.querySelector("#hideDemo_btn").style["display"] = "block";
-            document.querySelector("#fullscreen_btn").style["display"] = "block";
-            button.style["display"] = "none";
-            show_demo_btn.parentElement.insertBefore(document.querySelector('#demo'), show_demo_btn.nextSibling);
-            document.querySelector("#demo").style["display"] = "block";
-            document.querySelector("#demo").style["border"] = "2px solid";
-            document.querySelector("#demo").style["border-style"] = "ridge";
-            document.querySelector('canvas').style["position"] = "relative";
-            document.querySelector('canvas').style["height"] = "350px";
-            document.querySelector('canvas').style["z-index"] = "2";
+            const hideBtn = document.querySelector("#hideDemo_btn");
+            const fsBtn = document.querySelector("#fullscreen_btn");
+            if (hideBtn) hideBtn.style.display = "inline-block";
+            if (fsBtn) fsBtn.style.display = "inline-block";
+            if (button) button.style.display = "none";
+            const d = demoRoot();
+            if (!d || !show_demo_btn) return;
+            // Place panel demo right after the demo controls row
+            const anchor = document.getElementById('demo_controls') || show_demo_btn;
+            anchor.parentElement.insertBefore(d, anchor.nextSibling);
+            d.classList.add('as-panel');
+            d.classList.remove('as-bg');
+            d.style.display = "block";
+            d.style.border = "2px solid";
+            d.style.borderStyle = "ridge";
+            d.style.height = "350px";
+            startDemoEngine(demoEngine);
+            const d2 = demoRoot();
+            if (d2) {
+                d2.classList.add('as-panel');
+                d2.classList.remove('as-bg');
+            }
         }
+
+
+        // ── Ribbons demo engines (modern default) ─────────────────
+        let demoEngine = localStorage.getItem('ribbons_demo_engine') || 'modern';
+        let demoInstance = null;
+        let demoStarted = false;
+
+        function demoRoot() {
+            return document.getElementById('demo');
+        }
+
+        function demoCanvases() {
+            const d = demoRoot();
+            if (!d) return [];
+            return d.querySelectorAll('canvas');
+        }
+
+        function stopDemoEngine() {
+            if (demoInstance) {
+                try {
+                    if (typeof demoInstance.destroy === 'function') {
+                        demoInstance.destroy();
+                    } else {
+                        cancelAnimationFrame(window.AnimationId);
+                        if (demoInstance._canvas) demoInstance._canvas.remove();
+                        if (demoInstance._bgCanvas) demoInstance._bgCanvas.remove();
+                    }
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+            demoInstance = null;
+            const d = demoRoot();
+            if (d) {
+                d.querySelectorAll('canvas').forEach((c) => c.remove());
+            }
+        }
+
+        function currentBgMode() {
+            return document.body.classList.contains('light-theme') ? 'lightGradient' : 'darkGradient';
+        }
+
+        function embedClassicCanvases(inst) {
+            const d = demoRoot();
+            if (!d || !inst) return;
+            [inst._bgCanvas, inst._canvas].filter(Boolean).forEach((c, i) => {
+                d.appendChild(c);
+                c.style.position = 'absolute';
+                c.style.left = '0';
+                c.style.top = '0';
+                c.style.width = '100%';
+                c.style.height = '100%';
+                c.style.zIndex = String(i);
+                c.style.pointerEvents = 'none';
+            });
+            const r = d.getBoundingClientRect();
+            const w = Math.max(1, Math.round(r.width));
+            const h = Math.max(1, Math.round(r.height || 350));
+            inst._width = w;
+            inst._height = h;
+            if (inst._canvas) {
+                inst._canvas.width = w;
+                inst._canvas.height = h;
+            }
+            if (inst._bgCanvas) {
+                inst._bgCanvas.width = w;
+                inst._bgCanvas.height = h;
+            }
+            if (inst._context && inst._options) {
+                inst._context.globalAlpha = inst._options.colorAlpha;
+            }
+            if (typeof inst._drawBackground === 'function') {
+                try { inst._drawBackground(); } catch (_) {}
+            }
+        }
+
+        function startDemoEngine(engine) {
+            stopDemoEngine();
+            demoEngine = engine === 'classic' ? 'classic' : 'modern';
+            localStorage.setItem('ribbons_demo_engine', demoEngine);
+            document.querySelectorAll('#engineToggle button').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.engine === demoEngine);
+            });
+
+            const bg = currentBgMode();
+            const d = demoRoot();
+            if (!d) return;
+
+            if (demoEngine === 'modern') {
+                if (typeof RibbonsModern !== 'function') {
+                    console.warn('RibbonsModern not loaded');
+                    return;
+                }
+                demoInstance = new RibbonsModern({
+                    backgroundMode: bg,
+                    ribbonCount: 5,
+                    opacity: 85,
+                    glow: 50,
+                    horizontalSpeed: 1.4,
+                    endless: true,
+                    minLength: 1,
+                    maxLength: 2.5,
+                    minWidth: 12,
+                    maxWidth: 28,
+                    minCurl: 0.35,
+                    maxCurl: 1.0,
+                    minTwist: 0,
+                    maxTwist: 0.8,
+                    curlAmplitude: 0.2,
+                    container: d,
+                    zIndex: 1
+                });
+            } else {
+                if (typeof Ribbons !== 'function') {
+                    console.warn('Ribbons classic not loaded');
+                    return;
+                }
+                demoInstance = new Ribbons({
+                    colorSaturation: '70%',
+                    colorBrightness: '55%',
+                    colorAlpha: 0.75,
+                    colorCycleSpeed: 4,
+                    verticalPosition: 'random',
+                    horizontalSpeed: 200,
+                    delay: 3,
+                    phase: 0.02,
+                    ribbonCount: 4,
+                    strokeSize: 0,
+                    parallaxAmount: 0,
+                    animateSections: true,
+                    glow: 12,
+                    singleColor: false,
+                    backgroundMode: bg
+                });
+                embedClassicCanvases(demoInstance);
+            }
+            demoStarted = true;
+            // preserve panel vs background presentation
+            if (d && !d.classList.contains('as-panel')) {
+                d.classList.add('as-bg');
+                d.classList.remove('as-panel');
+            }
+        }
+
+        function setEngine(engine) {
+            const d = demoRoot();
+            const wasPanel = d && d.classList.contains('as-panel');
+            startDemoEngine(engine);
+            if (d) {
+                if (wasPanel) {
+                    d.classList.add('as-panel');
+                    d.classList.remove('as-bg');
+                    d.style.display = 'block';
+                    d.style.border = '2px solid';
+                    d.style.borderStyle = 'ridge';
+                } else {
+                    d.classList.add('as-bg');
+                    d.classList.remove('as-panel');
+                }
+            }
+        }
+
 
         window.onload = function() {
             setInitialTheme();
-            //setInitialLanguage();
-
             switchLanguage(true);
             loadTranslations(initialLang);
+
+            document.querySelectorAll('#engineToggle button').forEach((btn) => {
+                btn.addEventListener('click', () => setEngine(btn.dataset.engine));
+            });
+            const d0 = demoRoot();
+            if (d0) {
+                d0.classList.add('as-bg');
+                document.body.insertBefore(d0, document.body.firstChild);
+            }
+            startDemoEngine(demoEngine);
         }
 
         document.addEventListener('fullscreenchange', onFullscreenChange);
@@ -398,9 +694,12 @@
 
 </head>
 <body>
-    <script src="ribbons.js" async></script>
-    <h1 class="title"><img src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/icon.png" alt="Ribbons Electron Logo" class="logo"><span id="icon_span">Ribbons Screensaver</span></h1>
+        <h1 class="title"><img src="https://raw.githubusercontent.com/drlight17/ribbons-electron/master/icon.png" alt="Ribbons Electron Logo" class="logo"><span id="icon_span"></span></h1>
     <div class="container">
+        <div class="engine-toggle" id="engineToggle" role="group" aria-label="Demo engine">
+            <button type="button" data-engine="modern" class="active" id="engine_modern_btn"></button>
+            <button type="button" data-engine="classic" id="engine_classic_btn"></button>
+        </div>
         <div id="demo" width="100%" height="350px"></div>
         <div class="theme-toggle">
             <button onclick="toggleTheme()">🌙</button>
@@ -412,104 +711,97 @@
                 </button>
 
             </a>
-            <button id="toggleButton" onclick="switchLanguage()">Lang switcher</button>
+            <button id="toggleButton" onclick="switchLanguage()"></button>
         </div>
         <div class="lang">
-            <p id="title">Famous Windows "Ribbons" inspired screensaver made with JavaScript and Electron, supporting multiple platforms.</p>
-            <h2 class="glowing-text" id="showDemo_btn" onclick="showDemo(this)">Show demo</h2>
-            <h2 id="sys_req">Minimum system requirements</h2>
-            <p id="sys_req_p">MacOS 12.3 (since <a href="https://github.com/drlight17/ribbons-electron/releases/0.5.0">0.5.0</a>), Windows 10+, Linux with modern kernel version (>=6.x) and PulseAudio</p>
-            <h2 id="download">Download</h2>
+            <p id="title"></p>
+            <div id="demo_controls" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 12px;width:100%;">
+                <h2 class="glowing-text" id="showDemo_btn" onclick="showDemo(this)" style="margin:0;"></h2>
+                <div id="demo_controls_right" style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+                    <button type="button" id="hideDemo_btn" onclick="hideDemo()" title="Close" style="display:none;font-size:18px;background:none;border:none;cursor:pointer;padding:4px 8px;">✕</button>
+                    <button type="button" id="fullscreen_btn" onclick="fsDemo()" title="Fullscreen" style="display:none;font-size:18px;background:none;border:none;cursor:pointer;padding:4px 8px;">⛶</button>
+                </div>
+            </div>
+            <h2 id="sys_req"></h2>
+            <p id="sys_req_p"></p>
+            <h2 id="download"></h2>
             <!--<button class="download-button" onclick="downloadVersion()">Download automatically</button>-->
             <table border="1" cellpadding="10" cellspacing="0">
                 <thead>
                     <tr>
-                        <th id="platform_th">Platform</th>
-                        <th id="type_th">Type</th>
-                        <th id="download_th">Download link</th>
-                        <th id="filesize_th">File size</th>
+                        <th id="platform_th"></th>
+                        <th id="type_th"></th>
+                        <th id="download_th"></th>
+                        <th id="filesize_th"></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td>🖥 Windows MSI x64</td>
                         <td>.msi</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.0.5.1.msi">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.1.0.0-RC2.msi"></a></td>
                         <td>98.4 MB</td>
                     </tr>
                     <tr>
                         <td>🖥 Windows setup x64</td>
                         <td>.exe</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.Setup.0.5.1.exe">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver.Setup.1.0.0-RC2.exe"></a></td>
                         <td>88.4 MB</td>
                     </tr>
                     <tr>
                         <td>🐧 Debian/Ubuntu Linux x64</td>
                         <td>.deb</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron_0.5.1_amd64.deb">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron_1.0.0-RC2_amd64.deb"></a></td>
                         <td>85.5 MB</td>
                     </tr>
                     <tr>
                         <td>🐧 RHEL/Fedora Linux x64</td>
                         <td>.rpm</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.5.1.x86_64.rpm">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-1.0.0-RC2.x86_64.rpm"></a></td>
                         <td>85.5 MB</td>
                     </tr>
                     <tr>
                         <td>🐧 Linux AppImage x64</td>
                         <td>.AppImage</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.5.1.AppImage">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-1.0.0-RC2.AppImage"></a></td>
                         <td>119 MB</td>
-                    </tr>
-                    <tr>
-                        <td>🐧 Linux FlatPak x64</td>
-                        <td>.flatpak</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.5.1-x86_64.flatpak">Download</a></td>
-                        <td>86.7 MB</td>
                     </tr>
                     <tr>
                         <td>🌐 Linux Archive x64</td>
                         <td>.tar.gz</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-0.5.1.tar.gz">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/ribbons-electron-1.0.0-RC2.tar.gz"></a></td>
                         <td>114 MB</td>
                     </tr>
                     <tr>
                         <td>🌐 Windows Archive x64</td>
                         <td>.zip</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.5.1-win.zip">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-1.0.0-RC2-win.zip"></a></td>
                         <td>117 MB</td>
                     </tr>
                     <tr>
                         <td>🍎 macOS DMG x64</td>
                         <td>.dmg</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.5.1.dmg">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-1.0.0-RC2.dmg"></a></td>
                         <td>112 MB</td>
                     </tr>
                     <tr>
                         <td>🍎 macOS DMG arm64</td>
                         <td>.dmg</td>
-                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-0.5.1-arm64.dmg">Download</a></td>
+                        <td><a id="download" href="https://github.com/drlight17/ribbons-electron/releases/latest/download/Ribbons.screensaver-1.0.0-RC2-arm64.dmg"></a></td>
                         <td>107 MB</td>
                     </tr>
                 </tbody>
             </table>
 
-            <h2 id="usage_h2">Usage</h2>
-            <p id="usage_p">Ribbons Electron runs as a screensaver with idle system detection for fullscreen animation. Disable native screensavers to prevent conflicts.</p>
-            <h2 id="license_h2">License</h2>
-            <p id="license_p">This project is licensed under the AGPL-3.0 License. See the <a href="https://github.com/drlight17/ribbons-electron/blob/main/LICENSE">LICENSE</a> file for details.</p>
-            <h2 id="spec_h2">Special thanks to:</h2>
+            <h2 id="usage_h2"></h2>
+            <p id="usage_p"></p>
+            <h2 id="license_h2"></h2>
+            <p id="license_p"></p>
+            <h2 id="spec_h2"></h2>
             <ul>
-                <li id="spec_li1">
-                    <a href="https://github.com/madve2">madve2</a> for his 
-                    <a href="https://github.com/madve2/electron-screensaver-seed">electron-screensaver-seed repo</a> 
-                    that was partly used to create initial Electron app
-                </li>
-                <li id="spec_li2">
-                    <a href="https://github.com/fadyehabamer">fadyehabamer</a> for his 
-                    <a href="https://github.com/fadyehabamer/Ribbons-Screensaver">Ribbons-Screensaver repo</a> 
-                    that is the basis for graphics (he "failed with PWA", I made it with Electron =)))
-                </li>
+                <li id="spec_li1"/>
+                <li id="spec_li2"/>
+                <li id="spec_li3"/>
             </ul>
 
             <p id="all_rights_p">All rights belongs to their authors!</p>
@@ -518,5 +810,7 @@
     </div>
     <p class="copyright"><a href="https://github.com/drlight17">drlight17</a> &nbsp;&nbsp;©2025-2026 </p>
     <a href="mailto:drlight_here@inbox.ru"><img class="mailto" src="developed_by_drlight.png" /></a>
+    <script src="ribbons.js"></script>
+    <script src="ribbons_modern.js"></script>
 </body>
 </html>
